@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block body %}
+<main class="gate">
+  <h1>ТЮФ</h1>
+  <p class="quiet">Школы и центры</p>
+  <form method="post" action="/login">
+    <label>Имя
+      <select name="name">
+        <option>Никита</option>
+        <option>Александр</option>
+      </select>
+    </label>
+    <label>Пароль
+      <input name="password" type="password" autocomplete="current-password">
+    </label>
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    <button class="solid" type="submit">Войти</button>
+  </form>
+</main>
+{% endblock %}

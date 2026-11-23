@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school" aria-current="page">Школы</a>
+    <a href="/?kind=center">Центры</a>
+    <a href="/mailings">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="mailings">
+  <p class="crumb"><a href="/?kind=school">Школы</a> / импорт Excel</p>
+  <h1>Импорт школ из Excel</h1>
+  <p class="quiet">Загрузите .xlsx с листом «Школы». Первая строка — заголовки столбцов как в шаблоне.</p>
+
+  <div class="mail-actions" style="margin-bottom: 18px;">
+    <a class="solid-link" href="/schools/template.xlsx">Скачать пустую таблицу</a>
+    <a class="solid-link ghost" href="/schools/new">Добавить одну вручную</a>
+  </div>
+
+  <section class="mail-form tight">
+    <h2>Столбцы</h2>
+    <ol class="fields school-cols">
+      {% for name in headers %}
+      <li><code>{{ name }}</code>{% if name == "Школа" %} — обязательно (или «Команда»){% endif %}</li>
+      {% endfor %}
+    </ol>
+    <p class="quiet">Повтор по регион + город + школа обновляет запись (телефон, заметку, людей, команду). Адрес подставляется, если раньше был пустым.</p>
+  </section>
+
+  <form class="mail-form" method="post" action="/schools/import" enctype="multipart/form-data" style="margin-top: 18px;">
+    <label>Файл Excel
+      <input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+    </label>
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    <button class="solid" type="submit">Импортировать</button>
+  </form>
+</main>
+{% endblock %}

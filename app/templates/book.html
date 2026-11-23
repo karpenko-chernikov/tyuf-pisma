@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% macro mail(value) %}
+  {% if value and "@" in value and " " not in value and "," not in value %}
+  <a class="mail" href="mailto:{{ value }}">{{ value }}</a>
+  {% elif value %}{{ value }}{% else %}<span class="dash">—</span>{% endif %}
+{% endmacro %}
+{% macro cell(org_id, field, value, role='', placeholder='—') %}
+<input class="cell-edit" data-org="{{ org_id }}" data-field="{{ field }}"{% if role %} data-role="{{ role }}"{% endif %} value="{{ value or '' }}" placeholder="{{ placeholder }}" autocomplete="off" spellcheck="false">
+{% endmacro %}
+{% block body %}
+<a class="skip" href="#book">К таблице</a>
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="{{ school_href }}" {% if kind == "school" %}aria-current="page"{% endif %}>Школы</a>
+    <a href="{{ center_href }}" {% if kind == "center" %}aria-current="page"{% endif %}>Центры</a>
+    <a href="/mailings">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <p class="count" aria-live="polite">{{ count_label }}</p>
+  <form class="find" method="get" action="/" id="find" role="search">
+    <input type="hidden" name="kind" value="{{ kind }}">
+    {% if place %}<input type="hidden" name="place" value="{{ place }}">{% endif %}
+    <input name="q" id="q" value="{{ q }}" placeholder="Школа, город, команда или фамилия…" aria-label="Найти" autocomplete="off" spellcheck="false" enterkeyhint="search">
+    <button class="find-go" type="submit">Найти</button>
+    {% if q %}<a class="find-clear" href="{{ clear_q_href }}" aria-label="Сбросить поиск">Сбросить</a>{% endif %}
+  </form>
+  <div class="book-tools">
+    {% if kind == "school" %}
+    <a class="solid-link" href="/schools/new">Добавить школу</a>
+    <a class="solid-link ghost" href="/schools/import">Из Excel</a>
+    {% else %}
+    <a class="solid-link" href="/centers/new">Добавить центр</a>
+    {% endif %}
+  </div>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+{% if flash == "school-added" %}
+<p class="ok book-flash">Школа добавлена.</p>
+{% elif flash == "center-added" %}
+<p class="ok book-flash">Центр добавлен.</p>
+{% elif flash == "org-deleted" %}
+<p class="ok book-flash">Удалено. Вернуть можно из <a href="/journal">журнала</a>.</p>
+{% elif flash and flash.startswith("imported-") %}
+{% set parts = flash.split("-") %}
+<p class="ok book-flash">Импорт: новых {{ parts[1] }}, обновлено/пропущено {{ parts[2] }}.</p>
+{% endif %}
+<p class="book-hint quiet">Клик по названию — карточка. Поля правятся прямо в таблице. Столбцы можно скрыть.</p>
+<details class="col-panel" id="col-panel">
+  <summary>Столбцы</summary>
+  <div class="col-checks" id="col-checks" data-kind="{{ kind }}"></div>
+</details>
+<nav class="legend" aria-label="Регионы">
+  {% for item in legend %}
+  <a class="chip tone-{{ item.tone }}{% if item.on %} is-on{% endif %}" href="{{ item.href }}" {% if item.on %}aria-current="true"{% endif %}>{{ item.label }} <span>{{ item.count }}</span></a>
+  {% endfor %}
+</nav>
+<div class="sheet" id="book">
+  {% if kind == "school" %}
+  <table class="book-table" aria-label="Школы" data-kind="school">
+    <thead>
+      <tr>
+        <th data-col="name">Школа</th>
+        <th data-col="letter">Для письма</th>
+        <th data-col="address">Адрес</th>
+        <th data-col="city">Город</th>
+        <th data-col="region">Регион</th>
+        <th data-col="teams" class="th-filter">
+          <span class="th-label">Команды</span>
+          <select class="col-filter" name="team" form="find" aria-label="Фильтр по командам" onchange="document.getElementById('find').requestSubmit()">
+            {% for item in team_filters %}
+            <option value="{{ item.key }}" {% if item.on %}selected{% endif %}>{{ item.label }}</option>
+            {% endfor %}
+          </select>
+        </th>
+        <th data-col="director">Директор</th>
+        <th data-col="greeting">Обращение</th>
+        <th data-col="mail">Почта</th>
+        <th data-col="coach">Руководитель</th>
+        <th data-col="coach_mail">Почта рук.</th>
+        <th data-col="phone">Телефон</th>
+        <th data-col="note">Заметка</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="tone-{{ row.tone }}" data-org="{{ row.id }}">
+        <td class="name" data-col="name">
+          <a class="org-link" href="/orgs/{{ row.id }}">{{ row.name or (row.teams[0].name if row.teams else "—") }}</a>
+        </td>
+        <td data-col="letter">{{ cell(row.id, 'letter_name', row.letter_name, placeholder='для письма') }}</td>
+        <td data-col="address">{{ cell(row.id, 'address', row.address, placeholder='адрес') }}</td>
+        <td data-col="city">{{ cell(row.id, 'city', row.city) }}</td>
+        <td data-col="region">{{ cell(row.id, 'region', row.region) }}</td>
+        <td data-col="teams">
+          {% for team in row.teams %}
+          <div class="team"><span class="chip team-chip">{{ team.name }}</span>{% if team.participation %}<span class="quiet">{{ team.participation }}</span>{% endif %}</div>
+          {% else %}<span class="quiet">команд нет</span>{% endfor %}
+          <a class="quiet cell-more" href="/orgs/{{ row.id }}">в карточке</a>
+        </td>
+        <td data-col="director">{{ cell(row.id, 'director_name', row.director.full_name if row.director else '', placeholder='ФИО') }}</td>
+        <td data-col="greeting">{{ cell(row.id, 'director_greeting', row.director.greeting if row.director else '', placeholder='Уважаемый…') }}</td>
+        <td class="{{ 'gap' if not ((row.director and row.director.email) or (row.coach and row.coach.email)) else '' }}" data-col="mail">
+          {{ cell(row.id, 'director_email', row.director.email if row.director else '', placeholder='почта') }}
+        </td>
+        <td data-col="coach">{{ cell(row.id, 'coach_name', row.coach.full_name if row.coach else '', placeholder='ФИО') }}</td>
+        <td data-col="coach_mail">{{ cell(row.id, 'coach_email', row.coach.email if row.coach else '', placeholder='почта') }}</td>
+        <td class="phone" data-col="phone">{{ cell(row.id, 'phone', row.phone) }}</td>
+        <td data-col="note">{{ cell(row.id, 'note', row.note, placeholder='заметка') }}</td>
+      </tr>
+      {% else %}
+      <tr><td class="empty" colspan="13">{% if q or place or team %}Ничего не нашлось.{% else %}В книге пока нет школ.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <table class="book-table" aria-label="Центры" data-kind="center">
+    <thead>
+      <tr>
+        <th data-col="name">Центр</th>
+        <th data-col="letter">Для письма</th>
+        <th data-col="coverage">Охват</th>
+        <th data-col="address">Адрес</th>
+        <th data-col="city">Город</th>
+        <th data-col="region">Регион</th>
+        <th data-col="person">Кто</th>
+        <th data-col="role">Роль</th>
+        <th data-col="greeting">Обращение</th>
+        <th data-col="mail">Почта</th>
+        <th data-col="phone">Телефон</th>
+        <th data-col="note">Заметка</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="tone-{{ row.tone }}" data-org="{{ row.id }}">
+        <td class="name" data-col="name">
+          <a class="org-link" href="/orgs/{{ row.id }}">{{ row.name or "—" }}</a>
+        </td>
+        <td data-col="letter">{{ cell(row.id, 'letter_name', row.letter_name, placeholder='для письма') }}</td>
+        <td data-col="coverage">{{ cell(row.id, 'coverage', row.coverage, placeholder='охват') }}</td>
+        <td data-col="address">{{ cell(row.id, 'address', row.address, placeholder='адрес') }}</td>
+        <td data-col="city">{{ cell(row.id, 'city', row.city) }}</td>
+        <td data-col="region">{{ cell(row.id, 'region', row.region) }}</td>
+        <td data-col="person">{{ cell(row.id, 'person_name', row.person.full_name if row.person else '', role=(row.person.role if row.person else ''), placeholder='ФИО') }}</td>
+        <td data-col="role">{{ cell(row.id, 'person_role', row.person.role if row.person else '', role=(row.person.role if row.person else ''), placeholder='роль') }}</td>
+        <td data-col="greeting">{{ cell(row.id, 'person_greeting', row.person.greeting if row.person else '', role=(row.person.role if row.person else ''), placeholder='обращение') }}</td>
+        <td class="{{ 'gap' if not (row.person and row.person.email) else '' }}" data-col="mail">
+          {{ cell(row.id, 'person_email', row.person.email if row.person else '', role=(row.person.role if row.person else ''), placeholder='почта') }}
+        </td>
+        <td class="phone" data-col="phone">{{ cell(row.id, 'person_phone', row.person.phone if row.person else '', role=(row.person.role if row.person else ''), placeholder='телефон') }}</td>
+        <td data-col="note">{{ cell(row.id, 'note', row.note, placeholder='заметка') }}</td>
+      </tr>
+      {% else %}
+      <tr><td class="empty" colspan="12">{% if q or place %}Ничего не нашлось.{% else %}В книге пока нет центров.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+<script>
+(() => {
+  const save = async (el) => {
+    const org = el.dataset.org;
+    if (!org) return;
+    const body = new FormData();
+    body.append("field", el.dataset.field || "");
+    body.append("value", el.value || "");
+    if (el.dataset.role) body.append("role", el.dataset.role);
+    el.classList.remove("is-ok", "is-err");
+    el.classList.add("is-saving");
+    try {
+      const res = await fetch(`/orgs/${org}/quick`, { method: "POST", body, credentials: "same-origin" });
+      const data = await res.json().catch(() => ({ ok: false }));
+      el.classList.toggle("is-ok", !!(res.ok && data.ok));
+      el.classList.toggle("is-err", !(res.ok && data.ok));
+      if (el.dataset.field === "person_role" && data.ok) el.dataset.role = el.value;
+    } catch (_) {
+      el.classList.add("is-err");
+    } finally {
+      el.classList.remove("is-saving");
+    }
+  };
+  document.querySelectorAll(".cell-edit").forEach((el) => {
+    el.addEventListener("change", () => save(el));
+    el.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        el.blur();
+      }
+    });
+  });
+
+  const SCHOOL_COLS = [
+    ["name", "Школа"],
+    ["letter", "Для письма"],
+    ["address", "Адрес"],
+    ["city", "Город"],
+    ["region", "Регион"],
+    ["teams", "Команды"],
+    ["director", "Директор"],
+    ["greeting", "Обращение"],
+    ["mail", "Почта"],
+    ["coach", "Руководитель"],
+    ["coach_mail", "Почта рук."],
+    ["phone", "Телефон"],
+    ["note", "Заметка"],
+  ];
+  const CENTER_COLS = [
+    ["name", "Центр"],
+    ["letter", "Для письма"],
+    ["coverage", "Охват"],
+    ["address", "Адрес"],
+    ["city", "Город"],
+    ["region", "Регион"],
+    ["person", "Кто"],
+    ["role", "Роль"],
+    ["greeting", "Обращение"],
+    ["mail", "Почта"],
+    ["phone", "Телефон"],
+    ["note", "Заметка"],
+  ];
+  const table = document.querySelector(".book-table");
+  const checks = document.getElementById("col-checks");
+  if (!table || !checks) return;
+  const kind = table.dataset.kind || "school";
+  const cols = kind === "center" ? CENTER_COLS : SCHOOL_COLS;
+  const key = "tyuf-book-cols-" + kind;
+  let visible = {};
+  try { visible = JSON.parse(localStorage.getItem(key) || "{}") || {}; } catch (_) { visible = {}; }
+  cols.forEach(([id]) => {
+    if (visible[id] === undefined) visible[id] = true;
+  });
+  const apply = () => {
+    table.querySelectorAll("[data-col]").forEach((el) => {
+      const on = visible[el.dataset.col] !== false;
+      el.classList.toggle("is-col-hidden", !on);
+    });
+    localStorage.setItem(key, JSON.stringify(visible));
+  };
+  checks.innerHTML = "";
+  cols.forEach(([id, label]) => {
+    const lab = document.createElement("label");
+    lab.className = "col-check";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = visible[id] !== false;
+    input.addEventListener("change", () => {
+      visible[id] = input.checked;
+      apply();
+    });
+    lab.append(input, document.createTextNode(" " + label));
+    checks.append(lab);
+  });
+  apply();
+})();
+</script>
+{% endblock %}

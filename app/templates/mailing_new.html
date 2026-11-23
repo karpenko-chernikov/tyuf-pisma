@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school">Школы</a>
+    <a href="/?kind=center">Центры</a>
+    <a href="/mailings" aria-current="page">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="mailings">
+  <p class="crumb"><a href="/mailings">Рассылки</a> / новая</p>
+  <h1>Новая рассылка</h1>
+  <p class="quiet">Сначала шаблон. Школы добавите на следующем шаге — письма соберутся с подстановкой.</p>
+
+  <form class="mail-form" method="post" action="/mailings/new" enctype="multipart/form-data" id="mail-settings">
+    <label>Название
+      <input name="title" required placeholder="Приглашение · Москва 2027" autocomplete="off">
+    </label>
+    <label>Дата в письме <span class="hint">попадёт в {% raw %}{{date}}{% endraw %}</span>
+      <input name="letter_date" value="{{ letter_date }}" autocomplete="off">
+    </label>
+
+    <fieldset class="mode">
+      <legend>Как собирать письма</legend>
+      <label class="radio"><input type="radio" name="mode" value="html" checked data-mode-toggle> Текст на сайте + PDF-приложение</label>
+      <label class="radio"><input type="radio" name="mode" value="pdf" data-mode-toggle> Один PDF-шаблон с полями <code>{% raw %}{{school}}{% endraw %}</code></label>
+      <p class="quiet mode-warn" data-mode-panel="pdf" hidden>
+        PDF-режим не переносит строки: длинное название школы наезжает на соседний текст.
+        Для писем с полями внутри абзаца выбирайте «Текст на сайте».
+      </p>
+    </fieldset>
+
+    <div data-mode-panel="html">
+      <label>Текст письма <span class="hint">поля как {% raw %}{{school}}{% endraw %}</span>
+        <textarea name="letter_html" rows="16">{{ letter_html }}</textarea>
+      </label>
+      <label>Приложение PDF <span class="hint">необязательно: инфописьмо, задания</span>
+        <input type="file" name="annex_pdf" accept="application/pdf,.pdf">
+      </label>
+    </div>
+
+    <div data-mode-panel="pdf" hidden>
+      <label>PDF-шаблон <span class="hint">один файл с {% raw %}{{полями}}{% endraw %}</span>
+        <input type="file" name="template_pdf" accept="application/pdf,.pdf">
+      </label>
+      <p class="quiet">Второго файла не нужно — только шаблон.</p>
+    </div>
+
+    <details class="help">
+      <summary>Как указывать поля</summary>
+      <pre>{{ placeholder_help }}</pre>
+      <ul class="fields">
+        {% for key, title in placeholders %}
+        <li><code>{% raw %}{{{% endraw %}{{ key }}{% raw %}}}{% endraw %}</code> — {{ title }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    <button class="solid" type="submit">Создать рассылку</button>
+  </form>
+</main>
+<script>
+(() => {
+  const form = document.getElementById("mail-settings");
+  if (!form) return;
+  const sync = () => {
+    const mode = form.querySelector('input[name="mode"]:checked')?.value || "html";
+    form.querySelectorAll("[data-mode-panel]").forEach((el) => {
+      el.hidden = el.getAttribute("data-mode-panel") !== mode;
+    });
+  };
+  form.querySelectorAll("[data-mode-toggle]").forEach((el) => el.addEventListener("change", sync));
+  sync();
+})();
+</script>
+{% endblock %}

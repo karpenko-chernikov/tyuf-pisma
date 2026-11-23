@@ -1,0 +1,11 @@
+{# expects: name, value, regions, optional required #}
+<select name="{{ name }}" {% if required %}required{% endif %} aria-label="Регион">
+  <option value="">— выберите регион —</option>
+  {% set current = value or '' %}
+  {% if current and current not in regions %}
+  <option value="{{ current }}" selected>{{ current }}</option>
+  {% endif %}
+  {% for region in regions %}
+  <option value="{{ region }}" {% if region == current %}selected{% endif %}>{{ region }}</option>
+  {% endfor %}
+</select>

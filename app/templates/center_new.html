@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school">Школы</a>
+    <a href="/?kind=center" aria-current="page">Центры</a>
+    <a href="/mailings">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="mailings">
+  <p class="crumb"><a href="/?kind=center">Центры</a> / новый</p>
+  <h1>Добавить центр</h1>
+  <p class="quiet">Региональный центр или контакт Сириуса.</p>
+
+  <form class="mail-form" method="post" action="/centers/new">
+    <div class="mail-grid">
+      <label>Регион
+        {% with name='region', value=form.region or '', regions=regions, required=false %}
+        {% include "_region_select.html" %}
+        {% endwith %}
+      </label>
+      <label>Город
+        <input name="city" value="{{ form.city or '' }}" autocomplete="off">
+      </label>
+    </div>
+    <label>Центр <span class="hint">обязательно</span>
+      <input name="name" value="{{ form.name or '' }}" required autocomplete="off" placeholder="Центр «…»">
+    </label>
+    <label>Охват
+      <input name="coverage" value="{{ form.coverage or '' }}" autocomplete="off" placeholder="если отличается от региона">
+    </label>
+    <label>Адрес
+      <input name="address" value="{{ form.address or '' }}" autocomplete="off">
+    </label>
+    <div class="mail-grid">
+      <label>Название для письма
+        <input name="letter_name" value="{{ form.letter_name or '' }}" autocomplete="off">
+      </label>
+      <label>Телефон организации
+        <input name="phone" value="{{ form.phone or '' }}" autocomplete="off">
+      </label>
+    </div>
+    <label>Заметка
+      <input name="note" value="{{ form.note or '' }}" autocomplete="off">
+    </label>
+
+    <h2>Контакт</h2>
+    <div class="mail-grid">
+      <label>ФИО
+        <input name="person_name" value="{{ form.person_name or '' }}" autocomplete="off">
+      </label>
+      <label>Роль
+        <input name="person_role" value="{{ form.person_role or '' }}" autocomplete="off" placeholder="Директор / координатор">
+      </label>
+    </div>
+    <div class="mail-grid">
+      <label>Обращение
+        <input name="person_greeting" value="{{ form.person_greeting or '' }}" autocomplete="off">
+      </label>
+      <label>Телефон
+        <input name="person_phone" value="{{ form.person_phone or '' }}" autocomplete="off">
+      </label>
+    </div>
+    <label>Почта
+      <input name="person_email" type="email" value="{{ form.person_email or '' }}" autocomplete="off">
+    </label>
+
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    <div class="mail-actions">
+      <button class="solid" type="submit">Сохранить</button>
+      <a class="solid-link ghost" href="/?kind=center">Отмена</a>
+    </div>
+  </form>
+</main>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school" aria-current="page">Школы</a>
+    <a href="/?kind=center">Центры</a>
+    <a href="/mailings">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="mailings">
+  <p class="crumb"><a href="/?kind=school">Школы</a> / новая</p>
+  <h1>Добавить школу</h1>
+  <p class="quiet">Одна школа вручную. Несколько сразу — <a href="/schools/import">из Excel</a>.</p>
+
+  <form class="mail-form" method="post" action="/schools/new">
+    <div class="mail-grid">
+      <label>Регион
+        {% with name='region', value=form.region or '', regions=regions, required=false %}
+        {% include "_region_select.html" %}
+        {% endwith %}
+      </label>
+      <label>Город
+        <input name="city" value="{{ form.city or '' }}" autocomplete="off">
+      </label>
+    </div>
+    <label>Школа <span class="hint">обязательно</span>
+      <input name="name" value="{{ form.name or '' }}" required autocomplete="off" placeholder="МАОУ СОШ №…">
+    </label>
+    <label>Адрес для письма
+      <input name="address" value="{{ form.address or '' }}" autocomplete="off">
+    </label>
+    <div class="mail-grid">
+      <label>Название для письма
+        <input name="letter_name" value="{{ form.letter_name or '' }}" autocomplete="off" placeholder="если отличается от названия">
+      </label>
+      <label>Телефон
+        <input name="phone" value="{{ form.phone or '' }}" autocomplete="off">
+      </label>
+    </div>
+    <label>Заметка
+      <input name="note" value="{{ form.note or '' }}" autocomplete="off">
+    </label>
+
+    <h2>Директор</h2>
+    <div class="mail-grid">
+      <label>ФИО
+        <input name="director_name" value="{{ form.director_name or '' }}" autocomplete="off">
+      </label>
+      <label>Обращение
+        <input name="director_greeting" value="{{ form.director_greeting or '' }}" autocomplete="off" placeholder="Уважаемый …">
+      </label>
+    </div>
+    <label>Почта директора
+      <input name="director_email" type="email" value="{{ form.director_email or '' }}" autocomplete="off">
+    </label>
+
+    <h2>Руководитель команды</h2>
+    <div class="mail-grid">
+      <label>ФИО
+        <input name="coach_name" value="{{ form.coach_name or '' }}" autocomplete="off">
+      </label>
+      <label>Обращение
+        <input name="coach_greeting" value="{{ form.coach_greeting or '' }}" autocomplete="off">
+      </label>
+    </div>
+    <label>Почта руководителя
+      <input name="coach_email" type="email" value="{{ form.coach_email or '' }}" autocomplete="off">
+    </label>
+
+    <h2>Команда</h2>
+    <div class="mail-grid">
+      <label>Название команды
+        <input name="team" value="{{ form.team or '' }}" autocomplete="off">
+      </label>
+      <label>Участие
+        <input name="participation" value="{{ form.participation or '' }}" autocomplete="off">
+      </label>
+    </div>
+
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    <div class="mail-actions">
+      <button class="solid" type="submit">Сохранить</button>
+      <a class="solid-link ghost" href="/?kind=school">Отмена</a>
+    </div>
+  </form>
+</main>
+{% endblock %}

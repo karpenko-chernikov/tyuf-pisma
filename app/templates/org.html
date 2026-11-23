@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school" {% if org.kind == "school" %}aria-current="page"{% endif %}>Школы</a>
+    <a href="/?kind=center" {% if org.kind == "center" %}aria-current="page"{% endif %}>Центры</a>
+    <a href="/mailings">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="mailings org-card">
+  <p class="crumb">
+    <a href="/?kind={{ org.kind }}">{{ "Школы" if org.kind == "school" else "Центры" }}</a>
+    / {{ org.name or "без названия" }}
+  </p>
+  <div class="mail-head">
+    <div>
+      <h1>{{ org.name or "Без названия" }}</h1>
+      <p class="quiet">{{ org.city or "—" }}{% if org.region %} · {{ org.region }}{% endif %}</p>
+    </div>
+    {% if not org.is_deleted %}
+    <form method="post" action="/orgs/{{ org.id }}/delete" onsubmit="return confirm('Удалить «{{ org.name or 'без названия' }}»? Вернуть можно из журнала.');">
+      <button class="solid ghost danger" type="submit">Удалить</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if flash == "saved" %}<p class="ok">Сохранено.</p>{% endif %}
+  {% if flash == "restored" %}<p class="ok">Восстановлено.</p>{% endif %}
+  {% if org.is_deleted %}
+  <p class="warn org-deleted-banner">
+    Удалено{% if org.deleted_at %} {{ org.deleted_at }}{% endif %}. В таблице не показывается.
+    <form class="inline-form" method="post" action="/orgs/{{ org.id }}/restore">
+      <button class="solid" type="submit">Вернуть</button>
+    </form>
+  </p>
+  {% endif %}
+
+  <div class="org-layout">
+    <form class="mail-form" method="post" action="/orgs/{{ org.id }}" {% if org.is_deleted %}aria-disabled="true"{% endif %}>
+      <fieldset class="org-fields" {% if org.is_deleted %}disabled{% endif %}>
+      <h2>Карточка</h2>
+      <label>{{ "Школа" if org.kind == "school" else "Центр" }}
+        <input name="name" value="{{ org.name or '' }}" autocomplete="off">
+      </label>
+      <div class="mail-grid">
+        <label>Название для письма
+          <input name="letter_name" value="{{ org.letter_name or '' }}" autocomplete="off">
+        </label>
+        <label>Телефон
+          <input name="phone" value="{{ org.phone or '' }}" autocomplete="off">
+        </label>
+      </div>
+      <div class="mail-grid">
+        <label>Город
+          <input name="city" value="{{ org.city or '' }}" autocomplete="off">
+        </label>
+        <label>Регион
+          {% with name='region', value=org.region or '', regions=regions, required=false %}
+          {% include "_region_select.html" %}
+          {% endwith %}
+        </label>
+      </div>
+      <label>Адрес
+        <input name="address" value="{{ org.address or '' }}" autocomplete="off">
+      </label>
+      {% if org.kind == "center" %}
+      <label>Охват
+        <input name="coverage" value="{{ org.coverage or '' }}" autocomplete="off">
+      </label>
+      {% endif %}
+      <label>Заметка
+        <textarea name="note" rows="3">{{ org.note or '' }}</textarea>
+      </label>
+
+      {% if org.kind == "school" %}
+      <h2>Директор</h2>
+      <p class="quiet">Имя и обращение попадут в письмо как {% raw %}{{greeting}}{% endraw %}.</p>
+      <div class="mail-grid">
+        <label>ФИО
+          <input name="director_name" value="{{ (org.director.full_name if org.director else '') or '' }}" autocomplete="off" placeholder="Иванова Мария Петровна">
+        </label>
+        <label>Обращение
+          <input name="director_greeting" value="{{ (org.director.greeting if org.director else '') or '' }}" autocomplete="off" placeholder="Уважаемая Мария Петровна">
+        </label>
+      </div>
+      <div class="mail-grid">
+        <label>Почта
+          <input name="director_email" value="{{ (org.director.email if org.director else '') or '' }}" autocomplete="off">
+        </label>
+        <label>Телефон
+          <input name="director_phone" value="{{ (org.director.phone if org.director else '') or '' }}" autocomplete="off">
+        </label>
+      </div>
+
+      <h2>Руководитель команды</h2>
+      <div class="mail-grid">
+        <label>ФИО
+          <input name="coach_name" value="{{ (org.coach.full_name if org.coach else '') or '' }}" autocomplete="off">
+        </label>
+        <label>Обращение
+          <input name="coach_greeting" value="{{ (org.coach.greeting if org.coach else '') or '' }}" autocomplete="off">
+        </label>
+      </div>
+      <div class="mail-grid">
+        <label>Почта
+          <input name="coach_email" value="{{ (org.coach.email if org.coach else '') or '' }}" autocomplete="off">
+        </label>
+        <label>Телефон
+          <input name="coach_phone" value="{{ (org.coach.phone if org.coach else '') or '' }}" autocomplete="off">
+        </label>
+      </div>
+
+      <h2>Команды</h2>
+      <div class="team-edit" id="team-edit">
+        {% for team in org.teams %}
+        <div class="mail-grid team-row">
+          <label>Название
+            <input name="team_name" value="{{ team.name }}" autocomplete="off">
+          </label>
+          <label>Участие
+            <input name="team_participation" value="{{ team.participation or '' }}" autocomplete="off">
+          </label>
+        </div>
+        {% endfor %}
+        <div class="mail-grid team-row">
+          <label>Название
+            <input name="team_name" value="" autocomplete="off" placeholder="новая команда">
+          </label>
+          <label>Участие
+            <input name="team_participation" value="" autocomplete="off">
+          </label>
+        </div>
+      </div>
+      {% else %}
+      {% set person = org.people[0] if org.people else none %}
+      <h2>Контакт</h2>
+      <div class="mail-grid">
+        <label>ФИО
+          <input name="person_name" value="{{ (person.full_name if person else '') or '' }}" autocomplete="off">
+        </label>
+        <label>Роль
+          <input name="person_role" value="{{ (person.role if person else '') or '' }}" autocomplete="off">
+        </label>
+      </div>
+      <label>Обращение
+        <input name="person_greeting" value="{{ (person.greeting if person else '') or '' }}" autocomplete="off">
+      </label>
+      <div class="mail-grid">
+        <label>Почта
+          <input name="person_email" value="{{ (person.email if person else '') or '' }}" autocomplete="off">
+        </label>
+        <label>Телефон
+          <input name="person_phone" value="{{ (person.phone if person else '') or '' }}" autocomplete="off">
+        </label>
+      </div>
+      {% endif %}
+
+      <div class="mail-actions">
+        <button class="solid" type="submit">Сохранить</button>
+        <a class="solid-link ghost" href="/?kind={{ org.kind }}">К таблице</a>
+      </div>
+      </fieldset>
+    </form>
+
+    <aside class="org-edits panel open" aria-label="История правок">
+      <h2>История правок</h2>
+      {% if edits %}
+      <ol class="timeline">
+        {% for edit in edits %}
+        <li>
+          <div class="when">{{ edit.at }}{% if edit.by_user %} · {{ edit.by_user }}{% endif %}</div>
+          <div class="what">{{ edit.detail }}</div>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="quiet">Пока правок нет. Они появятся после сохранения карточки или правки в таблице.</p>
+      {% endif %}
+    </aside>
+  </div>
+
+  <section class="org-history">
+    <h2>История рассылок</h2>
+    {% if history %}
+    <div class="mail-sheet">
+      <table class="mail-list" aria-label="История рассылок">
+        <thead>
+          <tr>
+            <th>Рассылка</th>
+            <th>Дата письма</th>
+            <th>Статус</th>
+            <th>Почта</th>
+            <th>Последнее</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in history %}
+          <tr>
+            <td class="name"><a href="/mailings/{{ row.mailing_id }}">{{ row.mailing_title }}</a></td>
+            <td>{{ row.mailing_date or "—" }}</td>
+            <td>{{ status_label.get(row.status, row.status) }}</td>
+            <td>{{ row.email or "—" }}</td>
+            <td class="quiet">{{ row.last_event or "—" }}</td>
+            <td><a href="/mailings/{{ row.mailing_id }}/letters/{{ row.id }}">Письмо</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="quiet">Пока ни в одной рассылке не участвовала.</p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

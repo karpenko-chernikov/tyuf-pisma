@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school">Школы</a>
+    <a href="/?kind=center">Центры</a>
+    <a href="/mailings">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="account account-wide">
+  <h1>Кабинет</h1>
+
+  <section class="panel open account-block">
+    <h2>Пароль входа</h2>
+    <form method="post" action="/account" class="account-form">
+      <label>Текущий пароль
+        <input name="current" type="password" autocomplete="current-password">
+      </label>
+      <label>Новый пароль
+        <input name="new" type="password" autocomplete="new-password">
+      </label>
+      <label>Новый пароль ещё раз
+        <input name="again" type="password" autocomplete="new-password">
+      </label>
+      {% if error %}<p class="err">{{ error }}</p>{% endif %}
+      {% if saved %}<p class="ok">Пароль сохранён.</p>{% endif %}
+      <button class="solid" type="submit">Сохранить пароль</button>
+    </form>
+  </section>
+
+  <section class="panel open account-block">
+    <h2>Почтовые ящики</h2>
+    <p class="quiet">Нужны, чтобы слать письма рассылки прямо с сайта. Обычно хватает <strong>адреса</strong> и <strong>пароля приложения</strong> — сервер SMTP подставим сами.</p>
+
+    <div class="howto">
+      <h3>Откуда взять пароль приложения</h3>
+      <p>Это не тот пароль, которым вы заходите на почту в браузере. Почтовик выдаёт отдельный короткий пароль «для программ».</p>
+      <ol>
+        <li>
+          <strong>Gmail</strong> —
+          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">создать пароль приложения</a>
+          (нужна двухэтапная защита). Скопируйте 16 символов без пробелов.
+        </li>
+        <li>
+          <strong>Яндекс</strong> —
+          <a href="https://id.yandex.ru/security/app-passwords" target="_blank" rel="noopener">пароли приложений</a>
+          → создать → «Почта».
+        </li>
+        <li>
+          <strong>Mail.ru</strong> —
+          <a href="https://account.mail.ru/user/security-settings/external-services/passwords" target="_blank" rel="noopener">пароли для внешних приложений</a>.
+        </li>
+      </ol>
+      <p class="quiet">Дальше: впишите свой email и этот пароль → «Сохранить» → «Проверить вход». Поля SMTP трогать не нужно.</p>
+    </div>
+
+    {% if mail_flash %}<p class="ok">{{ mail_flash }}</p>{% endif %}
+    {% if mail_error %}<p class="err">{{ mail_error }}</p>{% endif %}
+
+    {% if mail_accounts %}
+    <div class="mail-sheet mailbox-list">
+      <table class="mail-list" aria-label="Почтовые ящики">
+        <thead>
+          <tr>
+            <th>Название</th>
+            <th>Адрес</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for box in mail_accounts %}
+          <tr>
+            <td>{{ box.label }}</td>
+            <td>{{ box.email }}</td>
+            <td class="mail-row-actions">
+              <form method="post" action="/account/mailboxes/{{ box.id }}/test">
+                <button class="text" type="submit">Проверить вход</button>
+              </form>
+              <form method="post" action="/account/mailboxes/{{ box.id }}/delete" onsubmit="return confirm('Удалить ящик {{ box.email }}?');">
+                <button class="text danger" type="submit">Удалить</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <form class="mail-form account-form" method="post" action="/account/mailboxes" id="mailbox-form">
+      <h3>Добавить ящик</h3>
+      <label>Ваш email
+        <input name="email" id="mail-email" value="{{ mail_form.email or '' }}" required placeholder="например you@gmail.com" autocomplete="username">
+      </label>
+      <p class="smtp-hint quiet" id="mail-hint" hidden></p>
+      <label>Пароль приложения
+        <input name="password" type="password" required autocomplete="new-password" placeholder="тот, что выдали Gmail / Яндекс / Mail.ru">
+      </label>
+      <label>Как назвать в списке <span class="hint">необязательно</span>
+        <input name="label" value="{{ mail_form.label or '' }}" placeholder="например: Gmail Никиты" autocomplete="off">
+      </label>
+
+      <details class="smtp-advanced">
+        <summary>Технические настройки SMTP — обычно не нужны</summary>
+        <p class="quiet">Заполняются сами по домену почты. Открывайте только если вход не проходит или почта корпоративная.</p>
+        <div class="mail-grid">
+          <label>SMTP-сервер
+            <input name="smtp_host" id="mail-host" value="{{ mail_form.smtp_host or '' }}" autocomplete="off">
+          </label>
+          <label>Порт
+            <input name="smtp_port" id="mail-port" value="{{ mail_form.smtp_port or '' }}" inputmode="numeric">
+          </label>
+        </div>
+        <div class="mail-grid">
+          <label>Шифрование
+            <select name="security" id="mail-security">
+              <option value="starttls" {% if mail_form.security != 'ssl' and mail_form.security != 'none' %}selected{% endif %}>STARTTLS</option>
+              <option value="ssl" {% if mail_form.security == 'ssl' %}selected{% endif %}>SSL</option>
+              <option value="none" {% if mail_form.security == 'none' %}selected{% endif %}>Без шифрования</option>
+            </select>
+          </label>
+          <label>Логин SMTP
+            <input name="username" value="{{ mail_form.username or '' }}" placeholder="если пусто — тот же email" autocomplete="off">
+          </label>
+        </div>
+      </details>
+
+      <button class="solid" type="submit">Сохранить ящик</button>
+    </form>
+  </section>
+</main>
+<script>
+(() => {
+  const email = document.getElementById("mail-email");
+  const host = document.getElementById("mail-host");
+  const port = document.getElementById("mail-port");
+  const security = document.getElementById("mail-security");
+  const hint = document.getElementById("mail-hint");
+  if (!email) return;
+  let timer;
+  const suggest = () => {
+    const value = email.value.trim();
+    if (!value.includes("@")) {
+      if (hint) { hint.hidden = true; hint.textContent = ""; }
+      return;
+    }
+    fetch("/account/smtp-suggest?email=" + encodeURIComponent(value))
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.ok) return;
+        if (data.smtp_host) {
+          host.value = data.smtp_host;
+          port.value = data.smtp_port;
+          if (security && data.security) security.value = data.security;
+          if (hint) {
+            hint.hidden = false;
+            hint.textContent = "Сервер для @" + data.domain + " подставим сами (" + data.smtp_host + "). Вам нужны только email и пароль приложения.";
+          }
+        } else if (hint) {
+          hint.hidden = false;
+          hint.textContent = "Домен @" + data.domain + " не из списка — откройте «Технические настройки» и спросите у админа почты SMTP-сервер.";
+        }
+      })
+      .catch(() => {});
+  };
+  email.addEventListener("change", suggest);
+  email.addEventListener("blur", suggest);
+  email.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(suggest, 350);
+  });
+  if (email.value) suggest();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school">Школы</a>
+    <a href="/?kind=center">Центры</a>
+    <a href="/mailings" aria-current="page">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="mailings letter-page">
+  <p class="crumb"><a href="/mailings">Рассылки</a> / <a href="/mailings/{{ mailing.id }}">{{ mailing.title }}</a> / письмо</p>
+  <div class="mail-head">
+    <div>
+      <h1>{{ letter.org_name }}</h1>
+      <p class="quiet">{{ letter.city or "—" }} · <span class="chip status-{{ letter.status }}">{{ letter.status_label }}</span></p>
+      {% if letter.email %}<p><a class="mailings" href="mailto:{{ letter.email }}">{{ letter.email }}</a>{% if letter.person_name %} · {{ letter.person_name }}{% endif %}</p>{% endif %}
+    </div>
+    <div class="mail-actions">
+      {% if has_pdf %}<a class="solid-link" href="/mailings/{{ mailing.id }}/letters/{{ letter.id }}/pdf" target="_blank" rel="noopener">Открыть PDF</a>{% endif %}
+      <form method="post" action="/mailings/{{ mailing.id }}/letters/{{ letter.id }}/sent"><button class="solid ghost" type="submit">Отметить отправленным</button></form>
+    </div>
+  </div>
+
+  {% if flash == "sent" %}<p class="ok">Письмо отправлено.</p>{% endif %}
+  {% if flash == "send-fail" %}<p class="err">Не удалось отправить — смотрите историю справа.</p>{% endif %}
+
+  <div class="letter-grid letter-grid-3">
+    <section class="panel open">
+      <h2>Просмотр PDF</h2>
+      {% if has_pdf %}
+      <iframe
+        class="pdf-frame"
+        title="Письмо PDF"
+        src="/mailings/{{ mailing.id }}/letters/{{ letter.id }}/pdf#view=FitH"
+      ></iframe>
+      <p class="quiet preview-fallback">
+        Если превью пустое —
+        <a href="/mailings/{{ mailing.id }}/letters/{{ letter.id }}/pdf" target="_blank" rel="noopener">откройте PDF в новой вкладке</a>.
+      </p>
+      {% else %}
+      <p class="quiet">PDF ещё не собран. Вернитесь в рассылку и нажмите «Создать письма с подстановкой».</p>
+      {% endif %}
+    </section>
+
+    <section class="panel open">
+      <h2>Отправить email</h2>
+      {% if not mail_accounts %}
+      <p class="err">Нет ящиков. Добавьте в <a href="/account">Кабинете</a>.</p>
+      {% elif not mailing.email_account_id %}
+      <p class="err">Выберите ящик в <a href="/mailings/{{ mailing.id }}#email-send">настройках отправки</a> рассылки.</p>
+      {% else %}
+      <p class="quiet">От кого: <strong>{{ mail_account.label if mail_account else '—' }}</strong>
+        {% if mail_account %} · {{ mail_account.email }}{% endif %}
+      </p>
+      <p class="quiet">Кому: <strong>{{ draft.to or 'нет почты' }}</strong></p>
+      <div class="email-preview">
+        <div class="email-preview-row"><span>Тема</span><div>{{ draft.subject }}</div></div>
+        <div class="email-preview-row"><span>Текст</span><pre>{{ draft.body }}</pre></div>
+        <div class="email-preview-row"><span>Вложение</span>
+          <div>
+            {% if draft.attach and draft.pdf_path %}PDF письма{% elif draft.attach %}нет PDF{% else %}без вложения{% endif %}
+          </div>
+        </div>
+      </div>
+      <form method="post" action="/mailings/{{ mailing.id }}/letters/{{ letter.id }}/send"
+            onsubmit="return confirm('Отправить на {{ draft.to }}?');">
+        <button class="solid" type="submit"
+          {% if not draft.to or (draft.attach and not draft.pdf_path) %}disabled{% endif %}>
+          Отправить сейчас
+        </button>
+      </form>
+      <p class="quiet">Тему и текст меняют в рассылке → «Отправка email». Здесь — превью с подставленным {% raw %}{{greeting}}{% endraw %}.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel open">
+      <h2>История</h2>
+      <ol class="timeline">
+        {% for event in events %}
+        <li>
+          <div class="when">{{ event.at }}{% if event.by_user %} · {{ event.by_user }}{% endif %}</div>
+          <div class="what"><strong>{{ event.kind }}</strong>{% if event.detail %} — {{ event.detail }}{% endif %}</div>
+        </li>
+        {% else %}
+        <li class="quiet">Пока пусто.</li>
+        {% endfor %}
+      </ol>
+      <form class="mail-form tight" method="post" action="/mailings/{{ mailing.id }}/letters/{{ letter.id }}/reply">
+        <label>Ответ получен
+          <textarea name="detail" rows="3" placeholder="Кратко: что ответили…" required></textarea>
+        </label>
+        <button class="solid" type="submit">Записать ответ</button>
+      </form>
+      <form class="mail-form tight" method="post" action="/mailings/{{ mailing.id }}/letters/{{ letter.id }}/note">
+        <label>Заметка
+          <textarea name="detail" rows="2" placeholder="Звонок, уточнение…" required></textarea>
+        </label>
+        <button class="solid ghost" type="submit">Добавить заметку</button>
+      </form>
+    </section>
+  </div>
+</main>
+{% endblock %}

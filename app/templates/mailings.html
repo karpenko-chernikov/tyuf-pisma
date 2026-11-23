@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school">Школы</a>
+    <a href="/?kind=center">Центры</a>
+    <a href="/mailings" aria-current="page">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="mailings">
+  <div class="mail-head">
+    <div>
+      <h1>Рассылки</h1>
+      <p class="quiet">Одна рассылка — один комплект писем. Внутри: получатели, PDF, история.</p>
+    </div>
+    <a class="solid-link" href="/mailings/new">Новая рассылка</a>
+  </div>
+  {% if flash == "deleted" %}<p class="ok">Рассылка удалена.</p>{% endif %}
+  {% if rows %}
+  <div class="mail-sheet">
+    <table class="mail-list mail-campaigns" aria-label="Рассылки">
+      <thead>
+        <tr>
+          <th scope="col">Название</th>
+          <th scope="col">Дата письма</th>
+          <th scope="col">Писем</th>
+          <th scope="col">Готово</th>
+          <th scope="col">Отправлено</th>
+          <th scope="col">Ответы</th>
+          <th scope="col"><span class="visually-hidden">Действия</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="name"><a href="/mailings/{{ row.id }}">{{ row.title }}</a></td>
+          <td>{{ row.letter_date or "—" }}</td>
+          <td>{{ row.letters }}</td>
+          <td>{{ row.ready }}</td>
+          <td>{{ row.sent }}</td>
+          <td>{{ row.replied }}</td>
+          <td class="mail-row-actions">
+            <a href="/mailings/{{ row.id }}">Открыть</a>
+            <form method="post" action="/mailings/{{ row.id }}/delete" onsubmit="return confirm('Удалить рассылку «{{ row.title }}» и все её письма?');">
+              <button class="text danger" type="submit">Удалить</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty-block">Пока нет рассылок. Создайте первую — загрузите шаблон и добавьте школы.</p>
+  {% endif %}
+</main>
+{% endblock %}

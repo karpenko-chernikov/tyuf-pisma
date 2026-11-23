@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school">Школы</a>
+    <a href="/?kind=center">Центры</a>
+    <a href="/mailings">Рассылки</a>
+    <a href="/journal" aria-current="page">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="journal">
+  <div class="mail-head">
+    <div>
+      <h1>Журнал</h1>
+      <p class="quiet">Все действия в приложении. Удалённую школу или центр можно вернуть кнопкой справа.</p>
+    </div>
+  </div>
+  {% if rows %}
+  <div class="mail-sheet">
+    <table class="mail-list journal-table" aria-label="Журнал действий">
+      <thead>
+        <tr>
+          <th scope="col">Когда</th>
+          <th scope="col">Кто</th>
+          <th scope="col">Действие</th>
+          <th scope="col">Что</th>
+          <th scope="col"><span class="visually-hidden">Действия</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="when">{{ row.at }}</td>
+          <td>{{ row.by_user or "—" }}</td>
+          <td class="kind">{{ row.kind_label }}</td>
+          <td class="detail">
+            {% if row.href %}<a href="{{ row.href }}">{{ row.detail }}</a>{% else %}{{ row.detail }}{% endif %}
+          </td>
+          <td class="journal-actions">
+            {% if row.can_restore %}
+            <form method="post" action="/orgs/{{ row.ref_id }}/restore">
+              <button class="solid ghost" type="submit">Вернуть</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="quiet journal-empty">Пока пусто. Записи появятся после правок, рассылок и ответов.</p>
+  {% endif %}
+</main>
+{% endblock %}

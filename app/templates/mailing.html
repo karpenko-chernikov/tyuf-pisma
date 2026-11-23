@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% macro mail(value) %}
+  {% if value and "@" in value and " " not in value and "," not in value %}
+  <a class="mail" href="mailto:{{ value }}">{{ value }}</a>
+  {% elif value %}{{ value }}{% else %}<span class="dash">—</span>{% endif %}
+{% endmacro %}
+{% block body %}
+<header class="top">
+  <a class="mark" href="/">ТЮФ</a>
+  <nav class="switch" aria-label="Раздел">
+    <a href="/?kind=school">Школы</a>
+    <a href="/?kind=center">Центры</a>
+    <a href="/mailings" aria-current="page">Рассылки</a>
+    <a href="/journal">Журнал</a>
+  </nav>
+  <span class="spacer"></span>
+  <a class="cabinet" href="/account">Кабинет</a>
+  <span class="who">{{ user.name }}</span>
+  <form method="post" action="/logout"><button class="text" type="submit">Выйти</button></form>
+</header>
+<main class="mailings">
+  <p class="crumb"><a href="/mailings">Рассылки</a> / {{ mailing.title }}</p>
+  <div class="mail-head">
+    <div>
+      <h1>{{ mailing.title }}</h1>
+      <p class="quiet">
+        {{ mailing.letter_date or "без даты" }} ·
+        {{ letters|length }} писем ·
+        готово PDF: {{ ready_count }} ·
+        режим {{ "PDF-шаблон" if mailing.mode == "pdf" else "текст + приложения" }}
+      </p>
+    </div>
+    <div class="mail-actions">
+      <form method="post" action="/mailings/{{ mailing.id }}/generate">
+        <button class="solid" type="submit"{% if not letters %} disabled{% endif %}>
+          Создать письма с подстановкой
+        </button>
+      </form>
+      <a class="solid-link ghost" href="/mailings/{{ mailing.id }}/zip">Скачать ZIP</a>
+      <form method="post" action="/mailings/{{ mailing.id }}/send" onsubmit="return confirm('Отправить письма с сайта тем, у кого есть почта и PDF (уже отправленные пропустим)?');">
+        <button class="solid" type="submit"{% if not letters or not mail_accounts or not mailing.email_account_id %} disabled title="Нужны ящик в Кабинете и настройки отправки ниже"{% endif %}>
+          Отправить с сайта
+        </button>
+      </form>
+      <form method="post" action="/mailings/{{ mailing.id }}/delete" onsubmit="return confirm('Удалить рассылку «{{ mailing.title }}» и все её письма?');">
+        <button class="solid ghost danger" type="submit">Удалить рассылку</button>
+      </form>
+    </div>
+  </div>
+
+  {% if flash == "saved" %}<p class="ok">Настройки сохранены.</p>{% endif %}
+  {% if flash == "email-saved" %}<p class="ok">Настройки отправки сохранены.</p>{% endif %}
+  {% if flash == "send-err" %}<p class="err">Не удалось начать отправку — выберите ящик в блоке «Отправка email» и сохраните.</p>{% endif %}
+  {% if flash and flash.startswith("send-") and flash != "send-err" %}
+  <p class="ok">Отправка: ушло {{ flash.split('-')[1] }}, ошибок {{ flash.split('-')[2] }}, пропуск {{ flash.split('-')[3] }}.</p>
+  {% endif %}
+  {% if flash and flash.startswith("added-") %}
+  <p class="ok">
+    Добавлено: {{ flash.split('-')[1] }}{% if flash.split('-')|length >= 5 %},
+    собрано PDF: {{ flash.split('-')[3] }}, ошибок: {{ flash.split('-')[4] }}{% endif %}.
+  </p>
+  {% endif %}
+  {% if flash and flash.startswith("gen-") %}<p class="ok">Собрано PDF: {{ flash.split('-')[1] }}, ошибок: {{ flash.split('-')[2] }}.</p>{% endif %}
+  {% if flash == "nozip" %}<p class="err">Сначала создайте письма с подстановкой.</p>{% endif %}
+
+  <details class="panel open" id="email-send">
+    <summary>Отправка email</summary>
+    <form class="mail-form" method="post" action="/mailings/{{ mailing.id }}/email-settings">
+      {% if not mail_accounts %}
+      <p class="err">Сначала добавьте почтовый ящик в <a href="/account">Кабинете</a> (логин SMTP / пароль приложения).</p>
+      {% endif %}
+      <label>От кого
+        <select name="email_account_id" {% if not mail_accounts %}disabled{% endif %}>
+          <option value="0">— выберите ящик —</option>
+          {% for box in mail_accounts %}
+          <option value="{{ box.id }}" {% if mailing.email_account_id == box.id %}selected{% endif %}>
+            {{ box.label }} · {{ box.email }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Тема <span class="hint">можно {% raw %}{{school}}{% endraw %}, {% raw %}{{city}}{% endraw %}…</span>
+        <input name="email_subject" value="{{ mailing.email_subject }}" required>
+      </label>
+      <label>Текст письма <span class="hint">{% raw %}{{greeting}}{% endraw %} подставит обращение к директору</span>
+        <textarea name="email_body" rows="8" required>{{ mailing.email_body }}</textarea>
+      </label>
+      <label class="check-inline">
+        <input type="checkbox" name="email_attach" value="1" {% if mailing.email_attach %}checked{% endif %}>
+        Приложить PDF письма
+      </label>
+      <p class="quiet">В тексте и теме работают те же поля, что в PDF: {% raw %}{{greeting}}{% endraw %}, {% raw %}{{school}}{% endraw %}, {% raw %}{{director}}{% endraw %}, {% raw %}{{date}}{% endraw %}…</p>
+      <div class="mail-actions">
+        <button class="solid" type="submit">Сохранить отправку</button>
+        <a class="solid-link ghost" href="/account">Ящики в кабинете</a>
+      </div>
+    </form>
+  </details>
+
+  <details class="panel"{% if not letters %} open{% endif %}>
+    <summary>Шаблон и настройки</summary>
+    <form class="mail-form" method="post" action="/mailings/{{ mailing.id }}/settings" enctype="multipart/form-data" id="mail-settings">
+      <label>Название
+        <input name="title" value="{{ mailing.title }}" required>
+      </label>
+      <label>Дата в письме <span class="hint">подставляется в {% raw %}{{date}}{% endraw %}</span>
+        <input name="letter_date" value="{{ mailing.letter_date }}">
+      </label>
+      <fieldset class="mode">
+        <legend>Как собирать письма</legend>
+        <label class="radio"><input type="radio" name="mode" value="html" {% if mailing.mode != "pdf" %}checked{% endif %} data-mode-toggle> Текст на сайте + PDF-приложение</label>
+      <label class="radio"><input type="radio" name="mode" value="pdf" {% if mailing.mode == "pdf" %}checked{% endif %} data-mode-toggle> Один PDF-шаблон с полями {% raw %}{{school}}{% endraw %}</label>
+      <p class="quiet mode-warn" data-mode-panel="pdf" {% if mailing.mode != "pdf" %}hidden{% endif %}>
+        PDF-режим только для коротких полей в шапке (город, дата, почта).
+        Если {% raw %}{{school}}{% endraw %} или {% raw %}{{greeting}}{% endraw %} стоят внутри абзаца —
+        текст наедет. Тогда нужен режим «Текст на сайте».
+      </p>
+    </fieldset>
+
+    <div data-mode-panel="html" {% if mailing.mode == "pdf" %}hidden{% endif %}>
+        <label>Текст письма <span class="hint">поля {% raw %}{{school}}{% endraw %}, {% raw %}{{greeting}}{% endraw %}…</span>
+          <textarea name="letter_html" rows="14">{{ mailing.letter_html }}</textarea>
+        </label>
+        <label>Приложение PDF <span class="hint">инфописьмо, задания — приклеится после письма{% if mailing.annex_name %}; сейчас: {{ mailing.annex_name }}{% elif has_annex_pdf %}; файл загружен{% endif %}</span>
+          <input type="file" name="annex_pdf" accept="application/pdf,.pdf">
+        </label>
+      </div>
+
+      <div data-mode-panel="pdf" {% if mailing.mode != "pdf" %}hidden{% endif %}>
+        <label>PDF-шаблон <span class="hint">файл с {% raw %}{{полями}}{% endraw %}{% if mailing.template_name %}; сейчас: {{ mailing.template_name }}{% elif has_template_pdf %}; файл загружен{% endif %}</span>
+          <input type="file" name="template_pdf" accept="application/pdf,.pdf">
+        </label>
+        <p class="quiet">В этом режиме нужен только один файл — шаблон. Приложение отдельно не загружается.</p>
+      </div>
+
+      <details class="help">
+        <summary>Поля для подстановки</summary>
+        <pre>{{ placeholder_help }}</pre>
+        <ul class="fields">
+          {% for key, title in placeholders %}
+          <li><code>{% raw %}{{{% endraw %}{{ key }}{% raw %}}}{% endraw %}</code> — {{ title }}</li>
+          {% endfor %}
+        </ul>
+      </details>
+      <button class="solid" type="submit">Сохранить</button>
+    </form>
+  </details>
+
+  <section class="panel open">
+    <h2>Письма в рассылке</h2>
+    {% if letters %}
+    <div class="mail-sheet">
+      <table class="mail-list">
+        <thead>
+          <tr>
+            <th>Организация</th>
+            <th>Город</th>
+            <th>Почта</th>
+            <th>Статус</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in letters %}
+          <tr>
+            <td class="name"><a href="/mailings/{{ mailing.id }}/letters/{{ row.id }}">{{ row.org_name }}</a></td>
+            <td>{{ row.city or "—" }}</td>
+            <td>{% if row.email %}{{ mail(row.email) }}{% else %}<span class="dash">нет почты</span>{% endif %}</td>
+            <td><span class="chip status-{{ row.status }}">{{ row.status_label }}</span></td>
+            <td class="row-actions">
+              <a href="/mailings/{{ mailing.id }}/letters/{{ row.id }}">Открыть</a>
+              {% if row.pdf_name %}<a href="/mailings/{{ mailing.id }}/letters/{{ row.id }}/pdf" target="_blank" rel="noopener">PDF</a>{% endif %}
+              <form method="post" action="/mailings/{{ mailing.id }}/letters/{{ row.id }}/delete" onsubmit="return confirm('Убрать из рассылки?');">
+                <button class="text" type="submit">Убрать</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="quiet">Получателей пока нет — отметьте школы или центры ниже. PDF соберётся сразу после добавления.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel open pick-panel">
+    <h2>Добавить получателей</h2>
+    <p class="quiet">Та же таблица и фильтры, что в разделе «Школы / Центры». Отметьте нужные — письма создадутся с подстановкой.</p>
+
+    <form class="find inline" method="get" action="/mailings/{{ mailing.id }}" id="find" role="search">
+      <nav class="switch" aria-label="Тип">
+        <a href="{{ school_href }}" {% if kind == "school" %}aria-current="page"{% endif %}>Школы</a>
+        <a href="{{ center_href }}" {% if kind == "center" %}aria-current="page"{% endif %}>Центры</a>
+      </nav>
+      <input type="hidden" name="kind" value="{{ kind }}">
+      {% if place %}<input type="hidden" name="place" value="{{ place }}">{% endif %}
+      <input name="q" id="q" value="{{ q }}" placeholder="Школа, город, команда или фамилия…" aria-label="Найти" autocomplete="off" spellcheck="false">
+      <button class="find-go" type="submit">Найти</button>
+      {% if q %}<a class="find-clear" href="{{ clear_q_href }}" aria-label="Сбросить поиск">Сбросить</a>{% endif %}
+      <span class="count">{{ count_label }}</span>
+    </form>
+
+    <nav class="legend" aria-label="Регионы">
+      {% for item in legend %}
+      <a class="chip tone-{{ item.tone }}{% if item.on %} is-on{% endif %}" href="{{ item.href }}" {% if item.on %}aria-current="true"{% endif %}>{{ item.label }} <span>{{ item.count }}</span></a>
+      {% endfor %}
+    </nav>
+
+    <form method="post" action="/mailings/{{ mailing.id }}/add">
+      {% if candidates %}
+      <div class="mail-sheet pick">
+        {% if kind == "school" %}
+        <table aria-label="Школы для рассылки">
+          <colgroup>
+            <col class="c-check"><col class="c-name"><col class="c-city"><col class="c-region"><col class="c-teams"><col class="c-person"><col class="c-mail">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="check"><input type="checkbox" id="all" onclick="document.querySelectorAll('.pick-one').forEach(c=>c.checked=this.checked)" aria-label="Выбрать все"></th>
+              <th>Школа</th>
+              <th>Город</th>
+              <th>Регион</th>
+              <th class="th-filter">
+                <span class="th-label">Команды</span>
+                <select class="col-filter" name="team" form="find" aria-label="Фильтр по командам" onchange="document.getElementById('find').requestSubmit()">
+                  {% for item in team_filters %}
+                  <option value="{{ item.key }}" {% if item.on %}selected{% endif %}>{{ item.label }}</option>
+                  {% endfor %}
+                </select>
+              </th>
+              <th>Директор</th>
+              <th>Почта</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in candidates %}
+            <tr class="tone-{{ row.tone }}">
+              <td class="check"><input class="pick-one" type="checkbox" name="org_id" value="{{ row.id }}"></td>
+              <td class="name">
+                {{ row.name or (row.teams[0].name if row.teams else "—") }}
+                {% if row.address %}<span class="addr">{{ row.address }}</span>{% endif %}
+              </td>
+              <td>{{ row.city or "—" }}</td>
+              <td><span class="chip">{{ row.place_label }}</span></td>
+              <td>
+                {% for team in row.teams %}
+                <div class="team"><span class="chip team-chip">{{ team.name }}</span></div>
+                {% else %}<span class="dash">—</span>{% endfor %}
+              </td>
+              <td>
+                {% if row.director and row.director.full_name %}<div>{{ row.director.full_name }}</div>{% endif %}
+                {% if row.coach and row.coach.full_name %}<div class="quiet">{{ row.coach.full_name }}</div>{% endif %}
+                {% if not (row.director and row.director.full_name) and not (row.coach and row.coach.full_name) %}<span class="dash">—</span>{% endif %}
+              </td>
+              <td class="{{ 'gap' if not ((row.director and row.director.email) or (row.coach and row.coach.email)) else '' }}">
+                {% if row.director and row.director.email %}<div>{{ mail(row.director.email) }}</div>{% endif %}
+                {% if row.coach and row.coach.email %}<div>{{ mail(row.coach.email) }}</div>{% endif %}
+                {% if not ((row.director and row.director.email) or (row.coach and row.coach.email)) %}нет почты{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <table aria-label="Центры для рассылки">
+          <colgroup>
+            <col class="c-check"><col class="c-name"><col class="c-city"><col class="c-region"><col class="c-person"><col class="c-mail">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="check"><input type="checkbox" id="all" onclick="document.querySelectorAll('.pick-one').forEach(c=>c.checked=this.checked)" aria-label="Выбрать все"></th>
+              <th>Центр</th>
+              <th>Город</th>
+              <th>Регион</th>
+              <th>Кто</th>
+              <th>Почта</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in candidates %}
+            <tr class="tone-{{ row.tone }}">
+              <td class="check"><input class="pick-one" type="checkbox" name="org_id" value="{{ row.id }}"></td>
+              <td class="name">
+                {{ row.name or "—" }}
+                {% if row.address %}<span class="addr">{{ row.address }}</span>{% endif %}
+              </td>
+              <td>{{ row.city or "—" }}</td>
+              <td><span class="chip">{{ row.place_label }}</span></td>
+              <td>{{ row.person.full_name if row.person and row.person.full_name else "—" }}</td>
+              <td class="{{ 'gap' if not (row.person and row.person.email) else '' }}">
+                {% if row.person and row.person.email %}{{ mail(row.person.email) }}{% else %}нет почты{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+      <button class="solid" type="submit">Добавить и создать письма</button>
+      {% else %}
+      <p class="quiet">Нечего добавлять — все уже в рассылке или поиск пуст.</p>
+      {% endif %}
+    </form>
+  </section>
+</main>
+<script>
+(() => {
+  const form = document.getElementById("mail-settings");
+  if (!form) return;
+  const sync = () => {
+    const mode = form.querySelector('input[name="mode"]:checked')?.value || "html";
+    form.querySelectorAll("[data-mode-panel]").forEach((el) => {
+      el.hidden = el.getAttribute("data-mode-panel") !== mode;
+    });
+  };
+  form.querySelectorAll("[data-mode-toggle]").forEach((el) => el.addEventListener("change", sync));
+  sync();
+})();
+</script>
+{% endblock %}
