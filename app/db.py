@@ -165,9 +165,10 @@ def _ensure_users(conn) -> None:
         row = conn.execute("SELECT id FROM users WHERE name = ?", (name,)).fetchone()
         if row:
             continue
-        password = os.environ.get(env_key) or os.environ.get("DEFAULT_USER_PASSWORD") or ""
+        password = (os.environ.get(env_key) or os.environ.get("DEFAULT_USER_PASSWORD") or "").strip()
         if not password:
-            password = "smena-parol"
+            # одноразовый; задайте пароль в .env до первого запуска или смените в Кабинете
+            password = secrets.token_urlsafe(12)
         conn.execute(
             "INSERT INTO users (name, password) VALUES (?, ?)",
             (name, hash_password(password)),
