@@ -12,6 +12,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug secrets
+        run: |
+          echo "host=[${{ secrets.SSH_HOST }}]"
+          echo "port=[${{ secrets.SSH_PORT }}]"
+          echo "key length: ${#SSH_KEY}"
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}    
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
