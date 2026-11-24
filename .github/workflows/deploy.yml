@@ -1,0 +1,37 @@
+name: Deploy to server
+
+on:
+  push:
+    branches: [main]        # ← change to your branch if not main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+      - name: Deploy
+        run: |
+          ssh -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} 'bash -s' <<'EOF'
+          set -euo pipefail
+          cd /var/www/tyuf-pisma
+          git fetch origin main
+          git reset --hard origin/main
+          docker build -t tyuf-pisma .
+          docker stop tyuf-pisma 2>/dev/null || true
+          docker rm   tyuf-pisma 2>/dev/null || true
+          docker run --name tyuf-pisma --restart unless-stopped \
+            -p 127.0.0.1:8010:8000 \
+            -v /var/www/tyuf-pisma/.env:/app/.env:ro \
+            -v /var/www/tyuf-pisma/data:/app/data \
+            -d tyuf-pisma
+          docker image prune -f
+          EOF
