@@ -11,6 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+COPY scripts ./scripts
 COPY run.sh .
 RUN mkdir -p data && chmod +x run.sh
 
@@ -19,4 +20,5 @@ ENV HOST=0.0.0.0
 ENV PORT=8000
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+RUN chmod +x scripts/docker-entrypoint.sh
+CMD ["./scripts/docker-entrypoint.sh"]
