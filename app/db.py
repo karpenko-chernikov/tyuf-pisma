@@ -137,28 +137,31 @@ def _migrate_columns(conn) -> None:
 
 # Имена входа. Пароли — только из .env при первом создании учётки (не коммитятся).
 DEFAULT_USERS = (
-    ("Никита", "NIKITA_PASSWORD"),
+    ("Никита Карпенко-Черников", "NIKITA_PASSWORD"),
     ("Александр Зинкевич", "ZINKEVICH_PASSWORD"),
     ("Артем Голомолзин", "GOLOMOLZIN_PASSWORD"),
 )
 
+# старое короткое имя → полное (логин в селекте на /login)
+USER_RENAMES = (
+    ("Никита", "Никита Карпенко-Черников"),
+    ("Александр", "Александр Зинкевич"),
+)
+
 
 def _ensure_users(conn) -> None:
-    """Создать недостающих пользователей; старое короткое «Александр» → Зинкевич."""
-    # Миграция старого имени
-    legacy = conn.execute(
-        "SELECT id FROM users WHERE name = ?", ("Александр",)
-    ).fetchone()
-    if legacy:
-        taken = conn.execute(
-            "SELECT id FROM users WHERE name = ?", ("Александр Зинкевич",)
-        ).fetchone()
+    """Создать недостающих пользователей; переименовать короткие логины."""
+    for old, new in USER_RENAMES:
+        legacy = conn.execute("SELECT id FROM users WHERE name = ?", (old,)).fetchone()
+        if not legacy:
+            continue
+        taken = conn.execute("SELECT id FROM users WHERE name = ?", (new,)).fetchone()
         if taken:
             conn.execute("DELETE FROM users WHERE id = ?", (legacy["id"],))
         else:
             conn.execute(
                 "UPDATE users SET name = ? WHERE id = ?",
-                ("Александр Зинкевич", legacy["id"]),
+                (new, legacy["id"]),
             )
 
     for name, env_key in DEFAULT_USERS:
