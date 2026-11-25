@@ -9,13 +9,19 @@ import pymupdf
 
 
 ROOT = Path(__file__).resolve().parent.parent
+ASSETS = Path(__file__).resolve().parent / "assets"
 FONT_DIR = ROOT / "data" / "fonts"
+# data/fonts (локально) → системные macOS → Liberation/DejaVu в Docker/Linux
 FONT_CANDIDATES = [
     FONT_DIR / "TimesNewRoman.ttf",
     Path("/System/Library/Fonts/Supplemental/Times New Roman.ttf"),
     Path("/Library/Fonts/Times New Roman.ttf"),
     Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
     Path("/Library/Fonts/Arial.ttf"),
+    Path("/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"),
+    Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+    Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"),
+    Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
 ]
 FONT_BOLD_CANDIDATES = [
     FONT_DIR / "TimesNewRoman-Bold.ttf",
@@ -23,6 +29,10 @@ FONT_BOLD_CANDIDATES = [
     Path("/Library/Fonts/Times New Roman Bold.ttf"),
     Path("/System/Library/Fonts/Supplemental/Arial Bold.ttf"),
     Path("/Library/Fonts/Arial Bold.ttf"),
+    Path("/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"),
+    Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
+    Path("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"),
+    Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
 ]
 
 # Поля, которые подставляются в шаблон.
@@ -246,12 +256,19 @@ def _font_path(candidates: list[Path]) -> str | None:
 def fontfile() -> str:
     path = _font_path(FONT_CANDIDATES)
     if not path:
-        raise RuntimeError("Не найден шрифт с кириллицей (Times New Roman / Arial).")
+        raise RuntimeError(
+            "Не найден шрифт с кириллицей. "
+            "На сервере нужны fonts-liberation или fonts-dejavu; локально — data/fonts/."
+        )
     return path
 
 
 EMBLEM_DIR = ROOT / "data" / "emblems"
-EMBLEM_INSTITUTES = EMBLEM_DIR / "institutes_row.png"
+EMBLEM_INSTITUTES = (
+    (ASSETS / "emblems" / "institutes_row.png")
+    if (ASSETS / "emblems" / "institutes_row.png").exists()
+    else (EMBLEM_DIR / "institutes_row.png")
+)
 
 
 def letter_archive() -> pymupdf.Archive:
@@ -587,24 +604,27 @@ def build_letter_pdf(
     if mode == "pdf" and data is not None and "{{school}}" in html_body:
         mode = "html"
 
-    if mode == "pdf":
-        if not template_pdf or not template_pdf.exists():
-            return {"ok": False, "missing": [], "error": "Нет PDF-шаблона"}
-        if data is None:
-            # шаблон как есть
-            dst.write_bytes(template_pdf.read_bytes())
-            return {"ok": True, "missing": [], "path": dst, "error": ""}
-        missing = _fill_pdf_placeholders(template_pdf, dst, data)
-        return {"ok": True, "missing": missing, "path": dst, "error": ""}
+    try:
+        if mode == "pdf":
+            if not template_pdf or not template_pdf.exists():
+                return {"ok": False, "missing": [], "error": "Нет PDF-шаблона"}
+            if data is None:
+                # шаблон как есть
+                dst.write_bytes(template_pdf.read_bytes())
+                return {"ok": True, "missing": [], "path": dst, "error": ""}
+            missing = _fill_pdf_placeholders(template_pdf, dst, data)
+            return {"ok": True, "missing": missing, "path": dst, "error": ""}
 
-    if annex_pdf and annex_pdf.exists():
-        letter = dst.with_name(dst.stem + ".letter.pdf")
-        html_to_pdf(html_body, letter, data)
-        append_pdf(letter, annex_pdf, dst, annex_from_page=0)
-        letter.unlink(missing_ok=True)
-    else:
-        html_to_pdf(html_body, dst, data)
-    return {"ok": True, "missing": [], "path": dst, "error": ""}
+        if annex_pdf and annex_pdf.exists():
+            letter = dst.with_name(dst.stem + ".letter.pdf")
+            html_to_pdf(html_body, letter, data)
+            append_pdf(letter, annex_pdf, dst, annex_from_page=0)
+            letter.unlink(missing_ok=True)
+        else:
+            html_to_pdf(html_body, dst, data)
+        return {"ok": True, "missing": [], "path": dst, "error": ""}
+    except Exception as exc:
+        return {"ok": False, "missing": [], "error": str(exc) or "Не удалось собрать PDF"}
 
 
 # Обратная совместимость для импортов, ожидающих LETTER_CSS

@@ -29,6 +29,8 @@
 
   {% if flash == "sent" %}<p class="ok">Письмо отправлено.</p>{% endif %}
   {% if flash == "send-fail" %}<p class="err">Не удалось отправить — смотрите историю справа.</p>{% endif %}
+  {% if flash == "gen-ok" %}<p class="ok">PDF собран.</p>{% endif %}
+  {% if flash == "gen-fail" %}<p class="err">Не удалось собрать PDF — смотрите историю справа.</p>{% endif %}
 
   <div class="letter-grid letter-grid-3">
     <section class="panel open">
@@ -44,7 +46,16 @@
         <a href="/mailings/{{ mailing.id }}/letters/{{ letter.id }}/pdf" target="_blank" rel="noopener">откройте PDF в новой вкладке</a>.
       </p>
       {% else %}
-      <p class="quiet">PDF ещё не собран. Вернитесь в рассылку и нажмите «Создать письма с подстановкой».</p>
+      <p class="err">
+        {% if letter.error %}{{ letter.error }}
+        {% elif letter.pdf_name %}В базе отмечено, что PDF есть, но файла на диске нет — соберите заново.
+        {% else %}PDF ещё не собран.
+        {% endif %}
+      </p>
+      <form method="post" action="/mailings/{{ mailing.id }}/letters/{{ letter.id }}/generate">
+        <button class="solid" type="submit">Собрать PDF этого письма</button>
+      </form>
+      <p class="quiet">Или в рассылке — «Создать письма с подстановкой» для всех.</p>
       {% endif %}
     </section>
 

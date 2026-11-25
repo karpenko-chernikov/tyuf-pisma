@@ -1072,6 +1072,24 @@ def mailing_letter(request: Request, mailing_id: int, letter_id: int, flash: str
     )
 
 
+@app.post("/mailings/{mailing_id}/letters/{letter_id}/generate")
+def mailing_letter_generate(request: Request, mailing_id: int, letter_id: int):
+    user = current_user(request)
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    letter = mailings.get_letter(letter_id)
+    if not letter or letter["mailing_id"] != mailing_id:
+        return RedirectResponse("/mailings", status_code=303)
+    result = mailings.generate_letters(
+        mailing_id, user.get("name") or "", only_ids=[letter_id]
+    )
+    flash = "gen-ok" if result.get("ok") else "gen-fail"
+    return RedirectResponse(
+        f"/mailings/{mailing_id}/letters/{letter_id}?flash={flash}",
+        status_code=303,
+    )
+
+
 @app.post("/mailings/{mailing_id}/letters/{letter_id}/send")
 def mailing_letter_send(request: Request, mailing_id: int, letter_id: int):
     user = current_user(request)
