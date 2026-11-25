@@ -6,8 +6,9 @@
   <form method="post" action="/login">
     <label>Имя
       <select name="name">
-        <option>Никита</option>
-        <option>Александр</option>
+        {% for u in users %}
+        <option value="{{ u.name }}">{{ u.name }}</option>
+        {% endfor %}
       </select>
     </label>
     <label>Пароль

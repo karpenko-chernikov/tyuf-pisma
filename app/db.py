@@ -194,6 +194,12 @@ def user_by_id(user_id):
     return dict(row) if row else None
 
 
+def list_users() -> list[dict]:
+    with connect() as conn:
+        rows = conn.execute("SELECT id, name FROM users ORDER BY id").fetchall()
+    return [dict(row) for row in rows]
+
+
 def change_password(user_id, current, new):
     user = user_by_id(user_id)
     if user is None or not check_password(current, user["password"]):

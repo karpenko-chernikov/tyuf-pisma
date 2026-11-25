@@ -53,7 +53,7 @@ def ru_count(number, one, few, many):
 def login_form(request: Request):
     if current_user(request):
         return RedirectResponse("/", status_code=303)
-    return page(request, "login.html", title="Вход", error="")
+    return page(request, "login.html", title="Вход", error="", users=db.list_users())
 
 
 @app.post("/login")
@@ -61,7 +61,13 @@ async def login(request: Request):
     form = await request.form()
     user = db.user_by_name(str(form.get("name") or ""))
     if user is None or not db.check_password(str(form.get("password") or ""), user["password"]):
-        return page(request, "login.html", title="Вход", error="Неверное имя или пароль.")
+        return page(
+            request,
+            "login.html",
+            title="Вход",
+            error="Неверное имя или пароль.",
+            users=db.list_users(),
+        )
     request.session["user_id"] = user["id"]
     return RedirectResponse("/", status_code=303)
 
