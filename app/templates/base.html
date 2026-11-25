@@ -7,9 +7,55 @@
   <meta name="theme-color" content="#eef2f0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=35">
+  <link rel="stylesheet" href="/static/app.css?v=36">
 </head>
 <body>
   {% block body %}{% endblock %}
+  <script>
+  (() => {
+    const KEY = "tyuf:keep-scroll";
+    const read = () => {
+      try { return JSON.parse(sessionStorage.getItem(KEY) || "null"); } catch (_) { return null; }
+    };
+    const mark = (path) => {
+      try {
+        sessionStorage.setItem(KEY, JSON.stringify({ path: path || location.pathname, y: window.scrollY || 0 }));
+      } catch (_) {}
+    };
+    const saved = read();
+    if (saved && saved.path === location.pathname && typeof saved.y === "number" && saved.y > 0) {
+      const y = saved.y;
+      const go = () => window.scrollTo(0, y);
+      go();
+      requestAnimationFrame(go);
+      window.addEventListener("load", go, { once: true });
+      try { sessionStorage.removeItem(KEY); } catch (_) {}
+    }
+    document.addEventListener("submit", () => mark(location.pathname), true);
+    document.addEventListener("click", (ev) => {
+      const a = ev.target.closest && ev.target.closest("a[href]");
+      if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+      let url;
+      try { url = new URL(a.href, location.href); } catch (_) { return; }
+      if (url.origin !== location.origin) return;
+      if (url.pathname === location.pathname) mark(url.pathname);
+    }, true);
+    // <details>: браузер часто прокручивает summary вверх при открытии
+    document.addEventListener("toggle", (ev) => {
+      const el = ev.target;
+      if (!(el instanceof HTMLDetailsElement)) return;
+      const y = el.dataset.scrollY;
+      if (y == null) return;
+      window.scrollTo(0, Number(y) || 0);
+      delete el.dataset.scrollY;
+    }, true);
+    document.addEventListener("click", (ev) => {
+      const summary = ev.target.closest && ev.target.closest("summary");
+      if (!summary) return;
+      const details = summary.closest("details");
+      if (details) details.dataset.scrollY = String(window.scrollY || 0);
+    }, true);
+  })();
+  </script>
 </body>
 </html>
